@@ -1,4 +1,3 @@
-streamlit
-pandas
-mysqlclient
-SQLAlchemy
+streamlit==1.0.0
+pandas==1.3.0
+mysql-connector-python==8.0.26
