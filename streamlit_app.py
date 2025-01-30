@@ -7,10 +7,10 @@ def get_connection():
     try:
         # Membuat koneksi ke database
         conn = mysql.connector.connect(
-            host='ruby.hidden-server.net',          
-            database='appkuid_posv1',
-            user='appkuid_tester_public',                      
-            password='DIDkmw]MyCQ=' 
+            host=st.secrets["DB_HOST"],
+            database=st.secrets["DB_DATABASE"],
+            user=st.secrets["DB_USER"],
+            password=st.secrets["DB_PASSWORD"]
         )
         if conn.is_connected():
             st.success("Berhasil terhubung ke database!")
