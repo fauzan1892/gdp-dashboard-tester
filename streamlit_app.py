@@ -1,151 +1,64 @@
+import mysql.connector
+from mysql.connector import Error
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
-
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
-
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
-
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
+def get_connection():
+    """Membuat koneksi ke database MariaDB menggunakan mysql.connector."""
+    try:
+        # Membuat koneksi ke database
+        conn = mysql.connector.connect(
+            host='ruby.hidden-server.net',          
+            database='appkuid_posv1',
+            user='appkuid_tester_public',                      
+            password='DIDkmw]MyCQ=' 
         )
+        if conn.is_connected():
+            st.success("Berhasil terhubung ke database!")
+        return conn
+    except Error as e:
+        st.error(f"Error saat menyambungkan ke database: {e}")
+        st.write("Pastikan pengaturan koneksi Anda benar.")
+        return None
+
+def fetch_data(conn, table_name):
+    """Mengambil data dari tabel tertentu dalam database."""
+    try:
+        # Membuat kursor untuk mengeksekusi query
+        cursor = conn.cursor(dictionary=True)
+        # Query untuk mengambil data dari tabel
+        query = f"SELECT * FROM {table_name} LIMIT 10"
+        cursor.execute(query)
+        # Mengambil hasil query
+        result = cursor.fetchall()
+        return result
+    except Error as e:
+        st.error(f"Error saat mengambil data dari tabel {table_name}: {e}")
+        return None
+    finally:
+        # Menutup kursor
+        if cursor:
+            cursor.close()
+
+def main():
+    st.title("Uji Koneksi Streamlit ke Database MariaDB")
+
+    # Menguji koneksi ke database
+    conn = get_connection()
+    if conn:
+        # Input untuk nama tabel
+        table_name = 'penjualan_detail'
+        if st.button("Tampilkan Data"):
+            # Mengambil data dari tabel
+            data = fetch_data(conn, table_name)
+            if data:
+                # Menampilkan data dalam bentuk DataFrame
+                st.write(f"Data dari tabel {table_name}:")
+                st.dataframe(data)
+        # Menutup koneksi setelah selesai
+        conn.close()
+        st.success("Koneksi ke database ditutup.")
+    else:
+        st.error("Koneksi ke database gagal. Pastikan pengaturan koneksi Anda benar.")
+
+if __name__ == "__main__":
+    main()
