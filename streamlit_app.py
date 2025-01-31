@@ -46,7 +46,7 @@ def main():
     conn = get_connection()
     if conn:
         # Input untuk nama tabel
-        table_name = 'penjualan_detail'
+        table_name = 'databersih'
         if st.button("Tampilkan Data"):
             # Mengambil data dari tabel
             data = fetch_data(conn, table_name)
